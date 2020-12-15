@@ -18,6 +18,7 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -274,6 +275,10 @@ func ipv6UnknownActionFromIdentifier(id IPv6ExtHdrOptionIdentifier) IPv6OptionUn
 	return IPv6OptionUnknownAction((id & ipv6UnknownExtHdrOptionActionMask) >> ipv6UnknownExtHdrOptionActionShift)
 }
 
+// ErrMalformedIPv6ExtHdrOption indicates that an IPv6 extension header option
+// is malformed.
+var ErrMalformedIPv6ExtHdrOption = errors.New("malformed IPv6 extension header option")
+
 // IPv6UnknownExtHdrOption holds the identifier and data for an IPv6 extension
 // header option that is unknown by the parsing utilities.
 type IPv6UnknownExtHdrOption struct {
@@ -350,6 +355,18 @@ func (i *IPv6OptionsExtHdrOptionsIterator) Next() (IPv6ExtHdrOption, bool, error
 			}
 			continue
 		case ipv6RouterAlertHopByHopOptionIdentifier:
+			// As per RFC 2711 section 2.1:
+			//
+			//   The router alert option has the following format:
+			//
+			//   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+			//   |0 0 0|0 0 1 0 1|0 0 0 0 0 0 1 0|        Value (2 octets)       |
+			//   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+			//                      length = 2
+			if length != ipv6RouterAlertPayloadLength {
+				return nil, true, fmt.Errorf("got invalid length (%d) for router alert option (want = %d): %w", length, ipv6RouterAlertPayloadLength, ErrMalformedIPv6ExtHdrOption)
+			}
+
 			var routerAlertValue [ipv6RouterAlertPayloadLength]byte
 			if n, err := i.reader.Read(routerAlertValue[:]); err != nil {
 				panic(fmt.Sprintf("error when reading RouterAlert option's data bytes: %s", err))

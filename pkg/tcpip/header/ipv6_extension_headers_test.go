@@ -212,6 +212,21 @@ func TestIPv6OptionsExtHdrIterErr(t *testing.T) {
 			bytes: []byte{1, 3},
 			err:   io.ErrUnexpectedEOF,
 		},
+		{
+			name:  "Router alert without data",
+			bytes: []byte{byte(ipv6RouterAlertHopByHopOptionIdentifier), 0},
+			err:   ErrMalformedIPv6ExtHdrOption,
+		},
+		{
+			name:  "Router alert with partial data",
+			bytes: []byte{byte(ipv6RouterAlertHopByHopOptionIdentifier), 1, 1},
+			err:   ErrMalformedIPv6ExtHdrOption,
+		},
+		{
+			name:  "Router alert with unexpected EOF",
+			bytes: []byte{byte(ipv6RouterAlertHopByHopOptionIdentifier), 1},
+			err:   io.ErrUnexpectedEOF,
+		},
 	}
 
 	check := func(t *testing.T, it IPv6OptionsExtHdrOptionsIterator, expectedErr error) {
